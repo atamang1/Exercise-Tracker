@@ -26,8 +26,25 @@ let exerciseSchema = new mongoose.Schema({
 let userSchema = new mongoose.Schema({
   username: {
     type: String,
-    required: true
+    required: true, 
+    unique: true
   }
+})
+
+let Log = new mongoose.Schema ({
+  username: {
+    type: String,
+    required: true
+  }, 
+  count: {
+    type: Number, 
+    default: 0 //Set default count to 0
+  }, 
+  log: [{
+    description: String,
+    duration: Number,
+    date: String
+  }]
 })
 
 
