@@ -52,7 +52,8 @@ let logSchema = new mongoose.Schema ({
   log: [{
     description: String,
     duration: Number,
-    date: String
+    date: String, 
+    _id: false
   }]
 })
 
@@ -89,12 +90,15 @@ app.route('/api/users').get(async (req, res) =>{
 
 //helper function validate date
 const convertDate = (dateString) => {
+
+  if(!dateString) return (new Date().toDateString());
+
   const dateArray = dateString.split('-'); 
   if(dateArray.length === 1) {
     const year = parseInt(dateArray[0],10); 
     return (new Date(year, 0, 1).toDateString()); 
   }
-  if(dateArray.length !== 3) return;
+  if(dateArray.length !== 3) throw new Error ("invalid date");
   const year = parseInt(dateArray[0], 10); 
   const month = parseInt(dateArray[1], 10) - 1; //Note: months are 0-indexed in JS
   const day = parseInt(dateArray[2], 10); 
@@ -127,13 +131,15 @@ app.route('/api/users/:_id/exercises').post(async (req, res) => {
     //let findUser = await LogModel.findById(id);
     let updatedLog = await LogModel.findById(id);
     
+    
     if(updatedLog)
     {
       updatedLog.log.push(logEntry); //push the new log entry
       updatedLog.count = updatedLog.log.length; //update the count
+      updatedLog.log.sort((a, b) => new Date(b.date) - new Date(a.date)); 
       await updatedLog.save(); 
 
-      res.json({_id: id, username: updatedLog.username, date: date, duration: duration, description: description});
+     return res.json({_id: id, username: updatedLog.username, date: date, duration: duration, description: description});
     }
 
     res.json({user: "not found"}); 
@@ -144,19 +150,57 @@ app.route('/api/users/:_id/exercises').post(async (req, res) => {
 });
 
 //logs route
-app.route('/api/users/:_id/logs?[from][&to][&limit]').get( async (req, res) => {
+app.route('/api/users/:_id/logs').get( async (req, res) => {
   let id = req.params._id;
-  let fromDate = req.params.from; 
-  let toDate = req.params.to; 
-  let limit = req.params.limit ? parseInt(req.query.limit) : undefined; 
-
-  let query = {_id: id};
-  if(fromDate) query.date = {...query.date, $gte: new Date(from)};
-  if(toDate) query.date = {...query.date, $lte: new Date(to)}; 
-
+  let from = req.query.from; 
+  let to = req.query.to; 
+  let limit = req.query.limit ? parseInt(req.query.limit, 10) : undefined; 
   try{
-    let logData = await LogModel.find(query).limit(limit);
-    res.json(logData);
+    let logData = await LogModel.findById(id); //Fetch the log with slicing for pagination or control
+    let exercises; 
+
+    if(!logData)
+    {
+      return res.json({Error: "no logs found for this user"});
+    }
+
+    if(!isNaN(limit))
+    {
+      //get the count 
+      let count = logData.count;
+      if(limit > count)
+      {
+        limit = count;
+      }
+
+      logData.log = logData.log.slice(0, limit);
+    }
+
+    if(from) {
+      try {
+        console.log('From: ', from); 
+        let fromDate = new Date(convertDate(from));
+        console.log('fromDate: ', fromDate);
+        logData.log = logData.log.filter(log => new Date(log.date) >= fromDate);
+      }
+      catch (err){
+        return res.send(err.message);
+      }
+    }
+
+    if(to){
+      try {
+        let toDate = new Date(convertDate(to));
+        logData.log= logData.log.filter(log => new Date(log.date) <= toDate );
+      }catch (err) {
+        return res.send(err.message);
+      }
+    }
+    
+   logData.count = logData.log.length;
+   console.log('logData.count: ', logData.count);
+   console.log('id: ', logData._id);
+    res.json({_id: id, count: logData.count, log: logData.log });
   }catch (err){
     console.log(err);
   }
