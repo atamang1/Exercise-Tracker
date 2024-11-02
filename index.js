@@ -155,15 +155,20 @@ app.route('/api/users/:_id/logs').get( async (req, res) => {
   let from = req.query.from; 
   let to = req.query.to; 
   let limit = req.query.limit ? parseInt(req.query.limit, 10) : undefined; 
+
   try{
-    let logData = await LogModel.findById(id); //Fetch the log with slicing for pagination or control
+
+    //get the data 
+    let logData = await LogModel.findById(id); 
     let exercises; 
 
+    //if user not exist
     if(!logData)
     {
       return res.json({Error: "no logs found for this user"});
     }
 
+    //query log based on to
     if(!isNaN(limit))
     {
       //get the count 
@@ -176,6 +181,7 @@ app.route('/api/users/:_id/logs').get( async (req, res) => {
       logData.log = logData.log.slice(0, limit);
     }
 
+    //query log base on from
     if(from) {
       try {
         console.log('From: ', from); 
@@ -188,6 +194,7 @@ app.route('/api/users/:_id/logs').get( async (req, res) => {
       }
     }
 
+    //query log based on to
     if(to){
       try {
         let toDate = new Date(convertDate(to));
@@ -197,6 +204,7 @@ app.route('/api/users/:_id/logs').get( async (req, res) => {
       }
     }
     
+  
    logData.count = logData.log.length;
    console.log('logData.count: ', logData.count);
    console.log('id: ', logData._id);
