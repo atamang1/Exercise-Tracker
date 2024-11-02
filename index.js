@@ -88,34 +88,38 @@ app.route('/api/users').get(async (req, res) =>{
 
 
 //helper function validate date
-const validateDate = (dateString) => {
+const convertDate = (dateString) => {
   const dateArray = dateString.split('-'); 
-
-  if(parseInt.length !== 3) return false;
+  if(dateArray.length === 1) {
+    const year = parseInt(dateArray[0],10); 
+    return (new Date(year, 0, 1).toDateString()); 
+  }
+  if(dateArray.length !== 3) return;
   const year = parseInt(dateArray[0], 10); 
-  const month = parseInt(dateArray[1], 10); //Note: months are 0-indexed in JS
+  const month = parseInt(dateArray[1], 10) - 1; //Note: months are 0-indexed in JS
   const day = parseInt(dateArray[2], 10); 
 
-  const date = new Date(year, month, day);
+  if(month > 11 || day > 31){
+    throw new Error("invalid month or day");
+  }
 
-  //check if the date object matches the input 
-  return date.getFullYear() === year && date.getMonth() === month && date.getDate() === day;
+  const date = new Date(year, month, day).toDateString();
+  return date;
 }
 
 //post exercises and response with json
 app.route('/api/users/:_id/exercises').post(async (req, res) => {
   let id = req.params._id; 
   let description = req.body.description;
-  let duration = req.body.duration; 
-  let date = req.body.date;
-
-  //check date
-  if(!date){
-    date = new Date().toDateString();
-  }else{
-    date = new Date(date).toDateString();
+  let duration = parseInt(req.body.duration, 10); 
+  let date;
+  try{
+    date = convertDate(req.body.date);
+    console.log("Date: ", date); 
+  } catch (error) {
+    return res.json({error: error.message}); 
   }
-  
+
   let logEntry = {description: description, duration: duration, date: date};
 
   //check user exist in the database 
@@ -128,9 +132,12 @@ app.route('/api/users/:_id/exercises').post(async (req, res) => {
       updatedLog.log.push(logEntry); //push the new log entry
       updatedLog.count = updatedLog.log.length; //update the count
       await updatedLog.save(); 
+
+      res.json({_id: id, username: updatedLog.username, date: date, duration: duration, description: description});
     }
 
-    res.json({username: updatedLog.username, date: date, duration: duration, description: description});
+    res.json({user: "not found"}); 
+
   } catch (err) {
     console.log(err); 
   }
